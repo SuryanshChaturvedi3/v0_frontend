@@ -169,3 +169,18 @@
     gap: 0.25rem;
   }
 } 
+
+.walkoverButton {
+  padding: 0.4rem 0.75rem;
+  background-color: #FF6B35;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  &:hover {
+    background-color: #e55a25;
+  }
+}

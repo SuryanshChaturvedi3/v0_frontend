@@ -88,6 +88,9 @@ export const endpoints = {
     // Match Operations endpoints
     matchOps: baseurl + "/match-ops",
 
+    // Walkover endpoint
+    declareWalkover: baseurl + "/declare-walkover",
+
     // Player Operations endpoints
     getPlayers: baseurl + "/player-ops/players",
     addPlayers: baseurl + "/player-ops/players",

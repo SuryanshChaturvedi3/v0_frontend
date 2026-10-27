@@ -110,7 +110,22 @@ const MatchTable = ({ tournamentId }) => {
                 <td>{match.pool || '-'}</td>
                 <td>{match.team1_players}</td>
                 <td>{match.team2_players}</td>
-                <td>{match.match_result}</td>
+                <td>
+                  {/* Show 'Walkover' badge for walkover matches */}
+                  {match.match_status?.outcome_type === 'walkover'
+                    ? <span style={{
+                        display: 'inline-block',
+                        background: '#FF6B35',
+                        color: '#fff',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        textTransform: 'uppercase'
+                      }}>Walkover</span>
+                    : match.match_result
+                  }
+                </td>
                 <td>
                   <span className={`${stl.status} ${stl[match.match_status.status]}`}>
                     {match.match_status.status}

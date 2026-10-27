@@ -325,6 +325,10 @@ const Fixtures = ({
                         <span className={styles.pool}>Pool: {match.pool}</span>
                         <span className={styles.round}>{match.round_name}</span>
                         {match.court_number && <span className={styles.courtAssigned}>Court: {match.court_number}</span>}
+                        
+                        {match.match_status?.outcome_type === 'walkover' && (
+                            <span className={styles.walkoverBadge}>Walkover</span>
+                        )}
                     </div>
                 </div>
             ));

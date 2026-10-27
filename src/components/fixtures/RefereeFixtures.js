@@ -91,6 +91,10 @@ const RefereeFixtures = ({ tournamentId, totalRounds }) => {
                     <span className={`${styles.status} ${styles[match.status]}`}>
                         {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
                     </span>
+                    {/* Walkover badge: only shown when outcome_type is 'walkover' */}
+                    {match.match_status?.outcome_type === 'walkover' && (
+                        <span className={styles.walkoverBadge}>Walkover</span>
+                    )}
                 </div>
             </div>
         ));

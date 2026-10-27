@@ -13,6 +13,9 @@ const RefereeMatchTable = ({ tournamentId }) => {
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [scores, setScores] = useState({ team1Score: 0, team2Score: 0 });
   const [modalType, setModalType] = useState('start'); // 'start' or 'completed'
+  // Walkover state
+  const [showWalkoverModal, setShowWalkoverModal] = useState(false);
+  const [walkoverMatch, setWalkoverMatch] = useState(null);
 
   useEffect(() => {
     const fetchMatches = async () => {
@@ -124,6 +127,45 @@ const RefereeMatchTable = ({ tournamentId }) => {
     }
   };
 
+  const handleWalkoverClick = (match) => {
+    setWalkoverMatch(match);
+    setShowWalkoverModal(true);
+  };
+
+  const handleDeclareWalkover = async (winnerTeamId) => {
+    try {
+      const response = await apiCall(endpoints.declareWalkover, {
+        method: 'POST',
+        body: {
+          match_id: walkoverMatch.match_id,
+          tournament_id: tournamentId,
+          winner_team_id: winnerTeamId
+        }
+      });
+      // Update local state so the row reflects Walkover immediately
+      setMatches(matches.map(m =>
+        m.match_id === walkoverMatch.match_id
+          ? {
+              ...m,
+              match_status: {
+                ...m.match_status,
+                status: 'completed',
+                is_final: true,
+                outcome_type: 'walkover',
+                winner_team_id: winnerTeamId
+              }
+            }
+          : m
+      ));
+      setShowWalkoverModal(false);
+      setWalkoverMatch(null);
+      toast.success('Walkover declared successfully');
+    } catch (error) {
+      console.error('Failed to declare walkover:', error);
+      toast.error(error.message || 'Failed to declare walkover');
+    }
+  };
+
   const handleEditClick = (match) => {
     if (match.match_status.status === 'completed') {
       setSelectedMatch(match);
@@ -189,7 +231,19 @@ const RefereeMatchTable = ({ tournamentId }) => {
                       />
                     </div>
                   ) : (
-                    match.match_result
+                    /* Show Walkover badge for walkover matches; numeric score for normal matches */
+                    match.match_status?.outcome_type === 'walkover'
+                      ? <span style={{
+                          display: 'inline-block',
+                          background: '#FF6B35',
+                          color: '#fff',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          textTransform: 'uppercase'
+                        }}>Walkover</span>
+                      : match.match_result
                   )}
                 </td>
                 <td>
@@ -199,29 +253,38 @@ const RefereeMatchTable = ({ tournamentId }) => {
                 </td>
                 <td>
                   {match.match_status.status === 'pending' && (
-                    <button 
-                      onClick={() => handleStartMatchClick(match)}
-                      className={stl.startButton}
-                    >
-                      Start Match
-                    </button>
+                    <div className={stl.actionButtons}>
+                      <button
+                        onClick={() => handleStartMatchClick(match)}
+                        className={stl.startButton}
+                      >
+                        Start Match
+                      </button>
+                      {/* Walkover available on pending matches — no need to start first */}
+                      <button
+                        onClick={() => handleWalkoverClick(match)}
+                        className={stl.walkoverButton}
+                      >
+                        Walkover
+                      </button>
+                    </div>
                   )}
                   {match.match_status.status === 'on-going' && (
                     editingMatch?.match_id === match.match_id ? (
                       <div className={stl.actionButtons}>
-                        <button 
+                        <button
                           onClick={() => handleScoreUpdate(match)}
                           className={stl.updateButton}
                         >
                           Update
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleScoreUpdate(match, true)}
                           className={stl.finalizeButton}
                         >
                           Finalize
                         </button>
-                        <button 
+                        <button
                           onClick={() => setEditingMatch(null)}
                           className={stl.cancelButton}
                         >
@@ -229,16 +292,25 @@ const RefereeMatchTable = ({ tournamentId }) => {
                         </button>
                       </div>
                     ) : (
-                      <button 
-                        onClick={() => handleEditClick(match)}
-                        className={stl.editButton}
-                      >
-                        Edit Score
-                      </button>
+                      <div className={stl.actionButtons}>
+                        <button
+                          onClick={() => handleEditClick(match)}
+                          className={stl.editButton}
+                        >
+                          Edit Score
+                        </button>
+                        {/* Walkover still available on an ongoing match */}
+                        <button
+                          onClick={() => handleWalkoverClick(match)}
+                          className={stl.walkoverButton}
+                        >
+                          Walkover
+                        </button>
+                      </div>
                     )
                   )}
                   {match.match_status.status === 'completed' && (
-                    <button 
+                    <button
                       onClick={() => handleEditClick(match)}
                       className={stl.editButton}
                     >
@@ -252,8 +324,8 @@ const RefereeMatchTable = ({ tournamentId }) => {
         </table>
       </div>
 
-      <Dialog 
-        open={showStatusModal} 
+      <Dialog
+        open={showStatusModal}
         onClose={() => setShowStatusModal(false)}
       >
         <DialogTitle>
@@ -267,14 +339,14 @@ const RefereeMatchTable = ({ tournamentId }) => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setShowStatusModal(false)}
             style={{ color: '#F28C28' }}
           >
             Cancel
           </Button>
           {modalType === 'start' ? (
-            <Button 
+            <Button
               onClick={() => {
                 handleStartMatch(selectedMatch);
                 setShowStatusModal(false);
@@ -284,7 +356,7 @@ const RefereeMatchTable = ({ tournamentId }) => {
               Start Match
             </Button>
           ) : (
-            <Button 
+            <Button
               onClick={() => {
                 const [team1Score, team2Score] = selectedMatch.match_result.split('-').map(Number);
                 setScores({ team1Score: team1Score || 0, team2Score: team2Score || 0 });
@@ -298,8 +370,47 @@ const RefereeMatchTable = ({ tournamentId }) => {
           )}
         </DialogActions>
       </Dialog>
+
+      {/* Walkover modal — referee selects which team wins without playing */}
+      <Dialog
+        open={showWalkoverModal}
+        onClose={() => { setShowWalkoverModal(false); setWalkoverMatch(null); }}
+      >
+        <DialogTitle>Declare Walkover</DialogTitle>
+        <DialogContent>
+          <p style={{ marginBottom: '1rem' }}>
+            Select the team that wins by walkover:
+          </p>
+          {walkoverMatch && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <Button
+                variant="outlined"
+                onClick={() => handleDeclareWalkover(walkoverMatch.team1?.team_id)}
+                style={{ justifyContent: 'flex-start', textTransform: 'none' }}
+              >
+                {walkoverMatch.team1_players} (Team {walkoverMatch.team1?.team_id})
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => handleDeclareWalkover(walkoverMatch.team2?.team_id)}
+                style={{ justifyContent: 'flex-start', textTransform: 'none' }}
+              >
+                {walkoverMatch.team2_players} (Team {walkoverMatch.team2?.team_id})
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => { setShowWalkoverModal(false); setWalkoverMatch(null); }}
+            style={{ color: '#F28C28' }}
+          >
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
 
-export default RefereeMatchTable; 
+export default RefereeMatchTable;

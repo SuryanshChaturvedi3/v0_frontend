@@ -18,6 +18,9 @@ const MatchScreen = ({ tournamentId, matchId }) => {
     const [isModalOpen, setModalOpen] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [matchStatus, setMatchStatus] = useState(null);
+    const [outcomeType, setOutcomeType] = useState('normal');
+    // Walkover modal state
+    const [showWalkoverModal, setShowWalkoverModal] = useState(false);
     const router = useRouter();
 
     const getScores = async () => {
@@ -40,6 +43,7 @@ const MatchScreen = ({ tournamentId, matchId }) => {
             }
 
             setMatchStatus(response.status || 'pending');
+            setOutcomeType(response.outcome_type || 'normal');
             
             if (response.status === 'completed') {
                 setShowStatusModal(true);
@@ -170,6 +174,28 @@ const MatchScreen = ({ tournamentId, matchId }) => {
         setModalOpen(true);
     };
 
+    const handleDeclareWalkover = async (winnerTeamId) => {
+        try {
+            await apiCall(endpoints.declareWalkover, {
+                method: 'POST',
+                body: {
+                    match_id: matchId,
+                    tournament_id: tournamentId,
+                    winner_team_id: winnerTeamId
+                }
+            });
+            setOutcomeType('walkover');
+            setMatchStatus('completed');
+            setShowWalkoverModal(false);
+            toast.success('Walkover declared successfully');
+            // Navigate back so the referee sees the updated fixture list
+            router.push(`/referee/${tournamentId}/matches`);
+        } catch (error) {
+            console.error('Failed to declare walkover:', error);
+            toast.error(error.message || 'Failed to declare walkover');
+        }
+    };
+
     const confirmFinalize = () => {
         setModalOpen(false);
         updateScore(true);
@@ -258,6 +284,40 @@ const MatchScreen = ({ tournamentId, matchId }) => {
                 <div className={stl.actions}>
                     <button type="button" onClick={() => updateScore(false)}>Update</button>
                     <button type="button" onClick={finalizeScore}>Final</button>
+                    {/* Walkover button — bypasses score entry entirely.
+                        Only shown when the match is not already completed. */}
+                    {matchStatus !== 'completed' && outcomeType !== 'walkover' && (
+                        <button
+                            type="button"
+                            onClick={() => setShowWalkoverModal(true)}
+                            style={{
+                                backgroundColor: '#FF6B35',
+                                color: 'white',
+                                border: 'none',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                            }}
+                        >
+                            Walkover
+                        </button>
+                    )}
+                    {/* If already a walkover, show a badge instead of controls */}
+                    {outcomeType === 'walkover' && (
+                        <span style={{
+                            display: 'inline-block',
+                            background: '#FF6B35',
+                            color: '#fff',
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            textTransform: 'uppercase'
+                        }}>
+                            Walkover
+                        </span>
+                    )}
                 </div>
             </form>
 
@@ -271,9 +331,9 @@ const MatchScreen = ({ tournamentId, matchId }) => {
                 </div>
             )}
 
-            <Dialog 
-                open={showStatusModal} 
-                onClose={handleBackToMatches}
+            <Dialog
+                open={showStatusModal}
+                onClose={() => setShowStatusModal(false)}
             >
                 <DialogTitle>
                     {matchStatus === 'completed' ? 'Match Completed' : 'Match Not Started'}
@@ -282,31 +342,72 @@ const MatchScreen = ({ tournamentId, matchId }) => {
                     {matchStatus === 'completed' ? (
                         <p>This match has been completed. Would you like to override the scores?</p>
                     ) : (
-                        <p>This match hasn't started yet. Would you like to start the match?</p>
+                        <p>This match hasn't started yet. Start the match to enter scores, or declare a Walkover.</p>
                     )}
                 </DialogContent>
                 <DialogActions>
-                    <Button 
-                        onClick={handleBackToMatches}
+                    <Button
+                        onClick={() => setShowStatusModal(false)}
                         style={{ color: '#F28C28' }}
                     >
-                        Cancel
+                        {/* For pending: dismiss dialog to reveal Walkover button.
+                            For completed: dismiss to allow override. */}
+                        {matchStatus === 'completed' ? 'Cancel' : 'Dismiss'}
                     </Button>
                     {matchStatus === 'completed' ? (
-                        <Button 
+                        <Button
                             onClick={() => setShowStatusModal(false)}
                             style={{ color: '#4CAF50' }}
                         >
                             Override Score
                         </Button>
                     ) : (
-                        <Button 
+                        <Button
                             onClick={handleStartMatch}
                             style={{ color: '#4CAF50' }}
                         >
                             Start Match
                         </Button>
                     )}
+                </DialogActions>
+            </Dialog>
+
+            {/* Walkover modal — select which team wins without playing */}
+            <Dialog
+                open={showWalkoverModal}
+                onClose={() => setShowWalkoverModal(false)}
+            >
+                <DialogTitle>Declare Walkover</DialogTitle>
+                <DialogContent>
+                    <p style={{ marginBottom: '1rem' }}>
+                        Select the team that wins by walkover:
+                    </p>
+                    {scoreData && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <Button
+                                variant="outlined"
+                                onClick={() => handleDeclareWalkover(scoreData.team1?.team_id)}
+                                style={{ justifyContent: 'flex-start', textTransform: 'none' }}
+                            >
+                                {scoreData.team1?.players?.map(p => `${p.first_name} ${p.last_name}`).join(' & ') || `Team ${scoreData.team1?.team_id}`}
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                onClick={() => handleDeclareWalkover(scoreData.team2?.team_id)}
+                                style={{ justifyContent: 'flex-start', textTransform: 'none' }}
+                            >
+                                {scoreData.team2?.players?.map(p => `${p.first_name} ${p.last_name}`).join(' & ') || `Team ${scoreData.team2?.team_id}`}
+                            </Button>
+                        </div>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => setShowWalkoverModal(false)}
+                        style={{ color: '#F28C28' }}
+                    >
+                        Cancel
+                    </Button>
                 </DialogActions>
             </Dialog>
         </div>

@@ -1100,3 +1100,18 @@
         color: white;
     }
 }
+
+/* Walkover badge — shown on match cards where outcome_type === 'walkover' */
+.walkoverBadge {
+  display: inline-block;
+  background-color: #FF6B35;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-top: 4px;
+  vertical-align: middle;
+}
